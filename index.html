@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>    
+    <script src="https://code.jquery.com/jquery-3.1.0.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/5.4.2/firebase.js"></script>
+    
+    <script>
+    // Initialize Firebase
+    var config = {
+        apiKey: "AIzaSyBszImtZvM4hAOhXuqVqB7ZCvlYQIkY7V8",
+        authDomain: "user-system-project.firebaseapp.com",
+        databaseURL: "https://user-system-project.firebaseio.com",
+        projectId: "user-system-project",
+        storageBucket: "user-system-project.appspot.com",
+        messagingSenderId: "498400938457"
+    };
+
+    firebase.initializeApp(config);
+
+    //////// 建立 DB，儲存使用者  ///////////
+    var database = firebase.database();  
+
+        function writeUserData(userId, name, email) {
+          firebase.database().ref('data/users/' + userId).set({
+            name: name,
+            email: email
+          });
+        }
+        
+        $(document).ready(function(){
+            /* 建立使用者 */
+            $("#create_user").click(function(){
+                var email       = $('#create_email').val();
+                var name        = $('#create_name').val(); 
+                var id          = email.replace("@", "_").replace(".", "_")
+                // console.log(newPostKey)
+                writeUserData(id,name,email);
+                alert("建檔成功")
+            });           
+        });         
+
+    /////////////// 建立 DB，儲存貼文  ////////////////////////
+    function writeUserPost(userId,content,tag,title,time,newPostKey,email,name) {
+        firebase.database().ref('data/articles/' + newPostKey).set({
+        article_content: content,
+        article_tag: tag,
+        article_title: title,
+        created_time: time,
+        author:{email:email,id:email.replace("@", "_").replace(".", "_"),name:name}
+        });
+    }
+    //更新使用者article
+    function addUserArticle(name,newPostKey,email) {
+        firebase.database().ref('data/users/' + email).set({
+        email:email,
+        name:name,
+        articles:newPostKey
+        });
+    }
+        
+    $(document).ready(function(){
+        /* 建立貼文 */
+        $("#create_a_post").click(function(){
+            var id        = $('#create_a_id').val();
+            var content   = $('#create_a_content').val();
+            var tag       = $('#create_a_tag').val();
+            var title     = $('#create_a_title').val(); 
+            var time      = $('#create_a_time').val();
+            var email     = $('#create_a_email').val(); 
+            var name      = $('#create_a_name').val();
+            var newPostKey = firebase.database().ref().child('posts').push().key;
+            writeUserPost(id,content,tag,title,time,newPostKey,email,name);
+            // addUserArticle(name,newPostKey,email);
+            alert("建立貼文成功")
+        });           
+    });   
+
+    //////////////搜尋email/////////////////
+
+    var getMail =[];
+    var underMail =[];
+    var newMail=[];
+    $(document).ready(function(){
+    $("#login_member_button").click(function(){
+        let mail = $('#login_member_mail').val();
+        newMail.push(mail.replace("@", "_").replace(".", "_"))
+        console.log(newMail)
+        let limitName = database.ref("data/users");
+        limitName.orderByChild("email").equalTo(mail).on("child_added", function(snapshot) {
+            console.log(snapshot.val().email +'存在')
+            getMail.push(snapshot.val().email)
+            document.getElementById("p_login").textContent = getMail
+            console.log(getMail)
+            // underMail = getMail.replace("@", "_").replace(".", "_")
+            // console.log(underMail)
+        });
+    });
+    });
+
+    ////////////發送好友邀請/////////////////
+
+    $(document).ready(function(){
+    $("#send_friend_request").click(function(){
+        var updates = {};
+        updates['/data/users/' + newMail +'/friends/test123_gmail_com'] = "待邀請";
+        firebase.database().ref().update(updates);
+
+        var updatesTest = {};
+        updatesTest['/data/users/test123_gmail_com/friends/'+newMail] = "待確認";
+        firebase.database().ref().update(updatesTest);
+
+    });
+    });
+
+    ////////////確認好友/////////////////
+
+    $(document).ready(function(){
+    $("#confirm_request").click(function(){
+        var updates = {};
+        updates['/data/users/' + newMail +'/friends/test123_gmail_com'] = true;
+        firebase.database().ref().update(updates);
+
+        var updatesTest = {};
+        updatesTest['/data/users/test123_gmail_com/friends/'+newMail] = true;
+        firebase.database().ref().update(updatesTest);
+    });
+    });
+
+    ////////////刪除好友/////////////////
+
+    $(document).ready(function(){
+    $("#refuse_request").click(function(){
+        firebase.database().ref('/data/users/' + newMail +'/friends/test123_gmail_com').remove();
+        firebase.database().ref('/data/users/test123_gmail_com/friends/'+newMail).remove();
+    });
+    });
+
+    ////////////取得資料/////////////////
+    
+    $(document).ready(function(){
+        function display_data(data_val){
+            $('#date').text(data_val);   
+        }
+        
+        firebase.database().ref('data/users/').on('value', function(snapshot) {
+            display_data(snapshot.val());
+        });             
+    }); 
+
+    ////////////取出特定資料//////////////////
+
+    var specialData = database.ref("data/articles");
+    specialData.orderByChild("article_tag").on("child_added", function(snapshot) {
+    // console.log(snapshot.key + ":" + snapshot.val() );
+    // console.log(snapshot.val())
+    });
+
+    //////////////透過 tag，取出 title////////////////////
+
+    var getTagTitle =[];
+    $(document).ready(function(){
+    $("#button_search_tag").click(function(){
+        let id = $('#input_search_tag').val();
+        let limit = database.ref("data/articles");
+        limit.orderByChild("article_tag").equalTo(id).on("child_added", function(snapshot) {
+        console.log(snapshot.val().article_title);
+        getTagTitle.push(snapshot.val().article_title)
+        document.getElementById("p-search_tag").textContent = getTagTitle;
+        });
+    });
+    });
+
+    //////////////透過 name，取出 title//////////////////
+    var getNameTitle =[];
+    $(document).ready(function(){
+    $("#button_search_friend").click(function(){
+        let id = $('#input_search_friend').val();
+        let limitName = database.ref("data/articles");
+        limitName.orderByChild("author/name").equalTo(id).on("child_added", function(snapshot) {
+            console.log(snapshot.val().article_title)
+            getNameTitle.push(snapshot.val().article_title)
+            document.getElementById("p-search_friend").textContent = getNameTitle            
+        });
+    });
+    });
+
+    //////////////透過 name、tag，取出 title//////////////////
+    var pairName=[];
+    var pairTag=[];
+    var samePair=[];
+
+    $(document).ready(function(){
+    $("#special_friend_tag").click(function(){
+        let sName = $('#special_name').val();
+        let sTag = $('#special_tag').val();
+
+        let getSName = database.ref("data/articles");
+        getSName.orderByChild("author/name").equalTo(sName).on("child_added", function(snapshot) {
+            // console.log(snapshot.val().article_title)
+            pairName.push(snapshot.val().article_title)
+        });
+
+        let getSTag = database.ref("data/articles");
+        getSTag.orderByChild("article_tag").equalTo(sTag).on("child_added", function(snapshot) {
+            // console.log(snapshot.val().article_title)
+            pairTag.push(snapshot.val().article_title)
+        });
+
+        for(let i=0;i<pairTag.length;i++){
+            for(let j=0;j<pairName.length;j++){                
+                if(pairName[j]==pairTag[i]){
+                    samePair.push(pairName[j])
+                }
+            }
+        }
+        console.log(samePair)
+        document.getElementById("special_p").textContent = samePair
+    });
+    });
+
+    </script>
+</head>
+<body>
+
+    <div>
+        <h3>建立使用者帳號</h3>
+        <!-- <input type="text" id="create_id"        placeholder="id"/> -->
+        <input type="text" id="create_email"     placeholder="email"/>
+        <input type="text" id="create_name"      placeholder="name"/>
+        <button id="create_user">建立帳號</button>    
+    </div>
+
+    <div>
+        <h3>建立使用者貼文</h3>
+        <!-- <input type="text" id="create_a_id"        placeholder="id"/> -->
+        <input type="text" id="create_a_content"   placeholder="content"/>
+        <input type="text" id="create_a_tag"       placeholder="tag"/>
+        <input type="text" id="create_a_title"     placeholder="title"/>
+        <input type="text" id="create_a_time"      placeholder="time"/>
+        <input type="text" id="create_a_email"     placeholder="email"/>
+        <input type="text" id="create_a_name"      placeholder="name"/>
+        <button id="create_a_post">建立貼文</button>    
+    </div>
+
+    <div>
+        <h3>搜尋 email 是否存在</h3>
+        <input type="text" id="login_member_mail"        placeholder="請輸入電子郵件"/>
+        <button id="login_member_button">搜尋此人</button> 
+        <p id="p_login"></p> 
+        <h3>發送好友邀請</h3>
+        <button id="send_friend_request">好友邀請</button> 
+        <hr>
+        <button id="confirm_request">確認加入好友</button> 
+        <button id="refuse_request">拒絕加入好友</button>
+        <hr>
+    </div>
+
+
+    <div>
+        <h3>搜尋特定 tag 的全部文章</h3>
+        <input type="text" id="input_search_tag"  placeholder="請輸入標籤名稱"/>
+        <button id="button_search_tag">搜尋標籤文章</button>    
+        <p id="p-search_tag"></p>
+    </div>
+    <div>
+        <h3>搜尋好友的特定文章</h3>
+        <input type="text" id="input_search_friend"  placeholder="請輸入名字"/>
+        <button id="button_search_friend">搜尋好友文章</button>    
+        <p id="p-search_friend"></p>
+    </div>
+    <div>
+        <h3>搜尋特定好友的特定tag文章</h3>
+        <input type="text" id="special_tag"  placeholder="請輸入標籤文章"/>
+        <input type="text" id="special_name"  placeholder="請輸入名字"/>
+        <button id="special_friend_tag">搜尋特定文章</button>                         
+        <p id="special_p"></p>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>
